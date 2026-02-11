@@ -814,6 +814,16 @@ def visualize_cae_result(model, loader, feat_cols, save_path="cae_result.png"):
 if __name__ == "__main__":
     # 1. 환경 설정 및 시드 고정
     set_seed(42, deterministic=True)
+
+    current_file_path = os.path.abspath(__file__)
+    code_dir = os.path.dirname(current_file_path)
+    project_root = os.path.dirname(code_dir)
+    DATA_DIR = os.path.join(project_root, "CMAPSSData")
+    RESULTS_DIR = os.path.join(project_root, "results")
+
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+
+    # ----------------------------------
     print(f"[Environment] {DEVICE}", end="")
     if DEVICE.type == "cuda":
         print(f" | {torch.cuda.get_device_name(0)}")
@@ -821,19 +831,19 @@ if __name__ == "__main__":
         print()
 
     # --- Step 1: Data load & basic prep ---
-    print("\n[Step 1] Loading data (RAW)")
-    BASE = os.getcwd()
+    print(f"\n[Step 1] Loading data from: {DATA_DIR}")
+
     cols = ["unit_number", "time_in_cycles"] + [f"op{i}" for i in range(1, 4)] + [f"s{i}" for i in range(1, 22)]
 
-    train_path = os.path.join(BASE, "train_FD001.txt")
-    test_path = os.path.join(BASE, "test_FD001.txt")
-    rul_path = os.path.join(BASE, "RUL_FD001.txt")
+    train_path = os.path.join(DATA_DIR, "train_FD001.txt")
+    test_path = os.path.join(DATA_DIR, "test_FD001.txt")
+    rul_path = os.path.join(DATA_DIR, "RUL_FD001.txt")
 
     if not os.path.exists(train_path):
-        print(f"Error: '{train_path}' not found.")
+        print(f"Error: '{train_path}' 파일을 찾을 수 없습니다. CMAPSSData 폴더를 확인하세요.")
         exit(1)
     if not os.path.exists(test_path):
-        print(f"Error: '{test_path}' not found.")
+        print(f"Error: '{test_path}' 파일을 찾을 수 없습니다. CMAPSSData 폴더를 확인하세요.")
         exit(1)
 
     train_df_raw = pd.read_csv(train_path, sep=r"\s+", header=None, names=cols)
@@ -898,7 +908,7 @@ if __name__ == "__main__":
                 tag=fold_tag,
                 seed=cae_seed,
                 do_visualize=True,                  
-                save_path=f"cae_result_{fold_tag}.png" 
+                save_path=os.path.join(RESULTS_DIR, f"cae_result_{fold_tag}.png")
             )
 
             # k Search
@@ -968,7 +978,7 @@ if __name__ == "__main__":
         tr_final_raw, FEATURE_COLS, window_size=30, epochs=25, batch_size=512,
         tag="FINAL", seed=4242,
         do_visualize=True,                  
-        save_path="cae_result_FINAL.png"    
+        save_path=os.path.join(RESULTS_DIR, "cae_result_FINAL.png")
     )
     
     final_results = []
@@ -1062,6 +1072,7 @@ if __name__ == "__main__":
     print("\n[Step 6] Detailed analysis for best model & Saving")
 
     X_te_final, _ = build_test_windows(te_final_raw, FEATURE_COLS, window_size=30)
+    
     if os.path.exists(rul_path):
         y_true = pd.read_csv(rul_path, sep=r"\s+", header=None).values.ravel().astype(float)
 
@@ -1083,15 +1094,17 @@ if __name__ == "__main__":
             if k_to_save is None:
                 k_to_save = float(best_concave.get("phi_params", {}).get("k", 1.6))
 
+            save_npz_path = os.path.join(RESULTS_DIR, "final_predictions_for_plotting.npz")
+
             np.savez(
-                os.path.join(BASE, "final_predictions_for_plotting.npz"),
+                save_npz_path,
                 y_true=y_true,
                 baseline_pred=baseline_pred_cap,
                 concave_pred=concave_pred_cap,
                 model_tag=np.array(best_concave["model"].upper()),
                 k_used=np.array(k_to_save)
             )
-            print(" ✓ Final predictions saved to 'final_predictions_for_plotting.npz'")
+            print(f" ✓ Final predictions saved to '{save_npz_path}'")
         except Exception as e:
             print(f" [!] Failed to save predictions: {e}")
     else:
