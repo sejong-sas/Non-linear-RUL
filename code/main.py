@@ -713,7 +713,7 @@ def run_single_experiment(
         y_pred = np.nan_to_num(y_pred, nan=0.0, posinf=125.0, neginf=0.0)
         y_pred = np.clip(y_pred, 0, None)
 
-        truth_path = os.path.join(os.getcwd(), "RUL_FD001.txt")
+        truth_path = os.path.join(DATA_DIR, "RUL_FD001.txt")
         if os.path.exists(truth_path):
             y_true = pd.read_csv(truth_path, sep=r"\s+", header=None).values.ravel().astype(float)
             
